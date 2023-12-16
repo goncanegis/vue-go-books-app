@@ -2,6 +2,7 @@
   <div class="mb-3">
     <label :for="name" class="form-label">{{ label }}</label>
     <input
+      :id="name"
       :type="type"
       :name="name"
       :placeholder="placeholder"
@@ -13,6 +14,7 @@
       class="form-control"
       @input="handleInput"
     />
+    <div class="form-text text-info">{{ help }}</div>
   </div>
 </template>
 
@@ -26,6 +28,7 @@ interface Props {
   max?: string
   modelValue?: string
   type?: string
+  help?: string
 }
 
 withDefaults(defineProps<Props>(), {
@@ -36,7 +39,8 @@ withDefaults(defineProps<Props>(), {
   modelValue: '',
   type: 'text',
   label: '',
-  name: ''
+  name: '',
+  help: ''
 })
 
 const emit = defineEmits(['update:modelValue'])
