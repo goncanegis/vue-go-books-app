@@ -43,3 +43,7 @@ docker-compose.yml
 # Makefiles
 Makefile
 Makefile.windows
+
+# DB files
+vueapi
+api/vueapi
