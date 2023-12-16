@@ -5,7 +5,7 @@
         <h1 class="mt-3">User</h1>
         <hr />
 
-        <form-tag name="userform" event="userEditEvent" @on-submit="submitHandler">
+        <form-tag v-if="ready" name="userform" event="userEditEvent" @on-submit="submitHandler">
           <text-input
             v-model="user.first_name"
             name="first-name"
@@ -70,19 +70,22 @@
 
           <div class="clearfix"></div>
         </form-tag>
+
+        <p v-else>Loading...</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue'
+import { computed, onBeforeMount, ref, watch } from 'vue'
 import Security from '@/components/security'
 import { store } from '@/components/store'
 import FormTag from '@/components/forms/FormTag.vue'
 import TextInput from '@/components/forms/TextInput.vue'
 import notie from 'notie'
 import { useRoute, useRouter } from 'vue-router'
+import { sleep } from '@/utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,7 +98,12 @@ const user = ref({
   password: ''
 })
 
+const ready = ref(true)
+
+const emit = defineEmits(['error', 'success', 'warning'])
+
 const submitHandler = () => {
+  ready.value = false
   const payload = {
     id: parseInt(String(route.params.userId), 10),
     first_name: user.value.first_name,
@@ -108,22 +116,17 @@ const submitHandler = () => {
     .then((response) => response.json())
     .then((data) => {
       if (data.error) {
-        notie.alert({
-          type: 'error',
-          text: data.message
-        })
+        emit('error', data.message)
       } else {
-        notie.alert({
-          type: 'success',
-          text: 'Changes saved!'
+        sleep(1000).then(() => {
+          ready.value = true
+          emit('success', 'User saved!')
+          router.push('/admin/users')
         })
       }
     })
     .catch((error) => {
-      notie.alert({
-        type: 'error',
-        text: error
-      })
+      emit('error', error)
     })
 }
 
@@ -138,18 +141,17 @@ const confirmDelete = (id: number) => {
         id
       }
 
+      ready.value = false
+
       fetch(`${import.meta.env.VITE_API_URL}/admin/users/delete`, Security.requestOptions(payload))
         .then((response) => response.json())
         .then((data) => {
           if (data.error) {
-            notie.alert({
-              type: 'error',
-              text: data.message
-            })
+            emit('error', data.message)
           } else {
-            notie.alert({
-              type: 'success',
-              text: 'User deleted!'
+            sleep(1000).then(() => {
+              emit('success', 'User deleted!')
+              router.push('/admin/users')
             })
           }
         })
@@ -157,29 +159,53 @@ const confirmDelete = (id: number) => {
   })
 }
 
+const fetchUser = (id: number) => {
+  ready.value = false
+  fetch(`${import.meta.env.VITE_API_URL}/admin/users/get/${id}`, Security.requestOptions(''))
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.error) {
+        emit('error', data.message)
+      } else {
+        sleep(1000).then(() => {
+          user.value = data
+          // we want password to be empty for existing users
+          user.value.password = ''
+          ready.value = true
+        })
+      }
+    })
+    .catch((error) => {
+      emit('error', error)
+    })
+}
+
 onBeforeMount(() => {
   Security.requireToken()
 
   if (parseInt(String(route.params.userId), 10) > 0) {
-    // editing an existing user
-    fetch(
-      `${import.meta.env.VITE_API_URL}/admin/users/get/${route.params.userId}`,
-      Security.requestOptions('')
-    )
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.error) {
-          notie.alert({
-            type: 'error',
-            text: data.message
-          })
-        } else {
-          user.value = data
+    fetchUser(parseInt(String(route.params.userId), 10))
+  }
+})
 
-          // we want password to be empty for existing users
-          user.value.password = ''
-        }
-      })
+// Watch for query param changes and reset form
+// if param id is not 0 fetch user data
+const paramWatcher = computed(() => route.params.userId)
+watch(paramWatcher, (newVal, oldVal) => {
+  if (newVal !== oldVal) {
+    if (parseInt(String(newVal), 10) === 0) {
+      // new user
+      user.value = {
+        id: 0,
+        first_name: '',
+        last_name: '',
+        email: '',
+        password: ''
+      }
+    } else {
+      // existing user
+      fetchUser(parseInt(String(newVal), 10))
+    }
   }
 })
 </script>

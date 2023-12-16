@@ -5,7 +5,7 @@
         <h1 class="mt-5">Login</h1>
         <hr />
 
-        <form-tag method="post" action="" name="myform" event="myevent" @my-event="submitHandler">
+        <form-tag method="post" action="" name="myform" event="myevent" @on-submit="submitHandler">
           <TextInput v-model="email" label="Email" type="email" name="email" :required="true" />
 
           <text-input
@@ -17,7 +17,11 @@
           />
 
           <hr />
-          <input type="submit" value="Login" class="btn btn-primary" />
+          <input
+            type="submit"
+            :value="ready === true ? 'Login' : 'Logging in...'"
+            class="btn btn-primary"
+          />
         </form-tag>
       </div>
     </div>
@@ -30,14 +34,18 @@ import FormTag from '@/components/forms/FormTag.vue'
 import { ref } from 'vue'
 import { store } from '../components/store'
 import router from '@/router'
-import notie from 'notie'
+import { sleep } from '@/utils'
+
 import Security from '../components/security'
+
+const emit = defineEmits(['error', 'success', 'warning'])
 
 const email = ref('')
 const password = ref('')
+const ready = ref(true)
 
 const submitHandler = () => {
-  console.log('submitHandler')
+  ready.value = false
 
   const payload = {
     email: email.value,
@@ -49,37 +57,36 @@ const submitHandler = () => {
     .then((response) => {
       if (response.error) {
         console.log('Error', response)
-        notie.alert({
-          type: 'error',
-          text: response.message,
-          stay: true,
-          position: 'bottom'
-        })
+        emit('error', response.message)
       } else {
-        console.log('Token: ', response.data.token.token)
-        store.token = response.data.token.token
-        store.user = {
-          id: response.data.user.id,
-          first_name: response.data.user.first_name,
-          last_name: response.data.user.last_name,
-          email: response.data.user.email
-        }
+        sleep(1000).then(() => {
+          console.log('Token: ', response.data.token.token)
+          store.token = response.data.token.token
+          store.user = {
+            id: response.data.user.id,
+            first_name: response.data.user.first_name,
+            last_name: response.data.user.last_name,
+            email: response.data.user.email
+          }
 
-        // save token to cookie
-        let date = new Date()
-        let expDays = 1
-        date.setTime(date.getTime() + expDays * 24 * 60 * 60 * 1000)
-        const expires = 'expires=' + date.toUTCString()
+          // save token to cookie
+          let date = new Date()
+          let expDays = 1
+          date.setTime(date.getTime() + expDays * 24 * 60 * 60 * 1000)
+          const expires = 'expires=' + date.toUTCString()
 
-        // set cookie
-        document.cookie =
-          '_site_data=' +
-          JSON.stringify(response.data) +
-          '; ' +
-          expires +
-          '; path=/; SameSite=strict; Secure;'
+          // set cookie
+          document.cookie =
+            '_site_data=' +
+            JSON.stringify(response.data) +
+            '; ' +
+            expires +
+            '; path=/; SameSite=strict; Secure;'
 
-        router.push('/')
+          ready.value = true
+
+          router.push('/')
+        })
       }
     })
 }

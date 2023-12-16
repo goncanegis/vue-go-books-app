@@ -48,6 +48,7 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 	validPassword, err := user.PasswordMatches(creds.Password)
 	if err != nil || !validPassword {
 		app.errorJSON(w, errors.New("invalid username/password"))
+		return
 	}
 
 	//we have a valid user, generate token
